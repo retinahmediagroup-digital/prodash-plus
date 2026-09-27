@@ -21,7 +21,7 @@ Built from the ProDash+ SSOT v1.0. Every file is idempotent: safe to re-run, in 
 
 Run in the Supabase SQL editor (or `psql`) in file order, then the seed:
 
-- **ProDash+_dev** already has 00 and 01 → run `02` … `10`, then `seed/seed_prodairy.sql`.
+- **ProDash+_dev** — done on 27 Sep 2026: 00 and 01 by hand; 02–10 applied as Supabase migrations (see `supabase_migrations.schema_migrations`); seed applied.
 - **ProDash+_pro** is empty → run `00` … `10`, then the seed.
 
 After applying, in the Supabase dashboard: **Settings → API → Exposed schemas = `api` only** (remove `public`/`graphql_public` if unused). `bronze`, `silver` and `ops` are never exposed.

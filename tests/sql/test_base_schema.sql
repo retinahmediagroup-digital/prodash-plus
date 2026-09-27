@@ -278,6 +278,17 @@ begin
     raise exception 'direct trader update allowed';
   exception when insufficient_privilege then null;
   end;
+  begin
+    perform salt from crm.experiments;
+    raise exception 'holdout salt readable by branch staff';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform gold.issue_trader_code('PRODAIRY', 'HF');
+    raise exception 'trader code issuer callable by app users';
+  exception when insufficient_privilege then null;
+  end;
+  assert (select count(*) from crm.experiments) = 1, 'experiment metadata (without salt) readable';
   raise notice 'PASS 6b HF manager writes';
 end $$;
 commit;

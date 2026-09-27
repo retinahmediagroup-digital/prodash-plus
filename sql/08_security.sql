@@ -144,11 +144,16 @@ begin
                              gold.v_engine_param_current, gold.v_branch_data_freshness,
                              gold.current_snapshot
              to authenticated';
-    execute 'grant select on crm.consent, crm.v_consent_current, crm.playbooks, crm.experiments,
+    execute 'grant select on crm.consent, crm.v_consent_current, crm.playbooks,
                              crm.experiment_assignments, crm.queue_exposures, crm.contacts, crm.notes,
                              crm.orders, crm.order_items, crm.field_tasks, crm.wa_templates,
                              crm.conversations, crm.messages
              to authenticated';
+    -- never the salt: with it, holdout membership could be recomputed by branch staff
+    execute 'revoke select on crm.experiments from authenticated';
+    execute 'grant select (experiment_id, client_id, name, holdout_share, eligible_states,
+                           starts_on, ends_on, status, created_at)
+             on crm.experiments to authenticated';
     execute 'grant select on scoring.runs, scoring.trader_scores, scoring.triggers,
                              scoring.v_current_scores to authenticated';
     execute 'grant select on app.user_profiles, app.user_branches to authenticated';
