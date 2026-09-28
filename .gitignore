@@ -17,3 +17,5 @@ __pycache__/
 target/
 dbt_packages/
 logs/
+*.egg-info/
+.pytest_cache/

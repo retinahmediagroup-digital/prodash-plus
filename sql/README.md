@@ -24,7 +24,7 @@ Built from the ProDash+ SSOT v1.0. Every file is idempotent: safe to re-run, in 
 
 Run in the Supabase SQL editor (or `psql`) in file order, then the seed:
 
-- **ProDash+_dev** — 00–13 + seed applied. 00 and 01 were run by hand on 25 Sep and recorded in `supabase_migrations.schema_migrations` afterwards, so the history reads 00 → 12 with no gaps.
+- **ProDash+_dev** — 00–13 + seed applied. 00 and 01 were run by hand on 25 Sep and recorded in `supabase_migrations.schema_migrations` afterwards, so the history reads 00 → 13 with no gaps.
 - **ProDash+_pro** is empty → apply `00` … `13` in order (each as a migration, so its history matches dev), then the seed.
 - Re-running all files in order is safe, and so is re-running 00 or 01 on its own after later files (both tested). For any other file, re-run it followed by every later file.
 
