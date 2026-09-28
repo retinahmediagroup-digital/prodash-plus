@@ -1,0 +1,19 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Customer data never goes in this repository
+data/*
+!data/.gitkeep
+*.csv
+*.xlsx
+
+# Tooling
+node_modules/
+.next/
+.venv/
+__pycache__/
+target/
+dbt_packages/
+logs/
