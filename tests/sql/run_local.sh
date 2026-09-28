@@ -44,9 +44,12 @@ fresh_db
 apply_from 0
 echo "-- re-run everything"
 apply_from 0
+echo "-- re-run 00 and 01 alone after everything (must not undo later files)"
+run "$ROOT/sql/00_init_schemas.sql"
+run "$ROOT/sql/01_dimensions.sql"
 assertions
 
-echo "== Scenario B: upgrade ProDash+_dev (00, 01 + current data) with 02..10"
+echo "== Scenario B: upgrade ProDash+_dev (00, 01 + current data) with 02..12"
 fresh_db
 run "$ROOT/sql/00_init_schemas.sql"
 run "$ROOT/sql/01_dimensions.sql"

@@ -101,21 +101,27 @@ alter table ops.load_log enable row level security;
 
 create index if not exists ix_load_log_client
   on ops.load_log (client_id, started_at desc);
-create index if not exists ix_load_log_client_open
-  on ops.load_log (client_id, status) where status <> 'loaded';
-create index if not exists ix_load_log_client_loaded
-  on ops.load_log (client_id, max_receipt_date desc) where status = 'loaded';
+-- status-filtered indexes are created in 03 with the full upload lifecycle
 create index if not exists ix_load_log_branch_client
   on ops.load_log (branch_id, client_id);
 
-/* ---- snapshot: internal view for backend jobs ---- */
-create or replace view ops.current_snapshot as
-select client_id,
-       max(max_receipt_date) as snapshot_date,
-       max(finished_at)      as last_loaded_at
-from   ops.load_log
-where  status = 'loaded'
-group  by client_id;
+/* ---- snapshot: internal view for backend jobs ----
+   Created only if missing: 03 redefines it for the full upload
+   lifecycle, and re-running this file must not undo that. */
+do $$
+begin
+  if to_regclass('ops.current_snapshot') is null then
+    execute $v$
+      create view ops.current_snapshot as
+      select client_id,
+             max(max_receipt_date) as snapshot_date,
+             max(finished_at)      as last_loaded_at
+      from   ops.load_log
+      where  status = 'loaded'
+      group  by client_id
+    $v$;
+  end if;
+end $$;
 
 comment on view ops.current_snapshot is
   'As-at date per client for all scoring. Backend only: the ops schema is not reachable from the API. The app reads gold.current_snapshot (created in 08_security.sql).';
@@ -124,22 +130,31 @@ comment on view ops.current_snapshot is
    SECURITY DEFINER so security_invoker views can resolve the snapshot
    without the caller needing rights on ops. Returns null for a client
    the caller does not belong to. */
-create or replace function gold.snapshot_date(p_client_id text)
-returns date
-language sql
-stable
-security definer
-set search_path = ops, pg_temp
-as $$
-  select max(l.max_receipt_date)
-  from ops.load_log l
-  where l.client_id = p_client_id
-    and l.status = 'loaded'
-    and (
-          coalesce(auth.jwt() ->> 'role', '') = 'service_role'
-       or p_client_id = auth.jwt() -> 'app_metadata' ->> 'client_id'
-    )
-$$;
+do $$
+begin
+  -- created only if missing: 08 gives it its final definition, and
+  -- re-running this file must not undo that
+  if to_regprocedure('gold.snapshot_date(text)') is null then
+    execute $f$
+      create function gold.snapshot_date(p_client_id text)
+      returns date
+      language sql
+      stable
+      security definer
+      set search_path = ops, pg_temp
+      as $body$
+        select max(l.max_receipt_date)
+        from ops.load_log l
+        where l.client_id = p_client_id
+          and l.status = 'loaded'
+          and (
+                coalesce(auth.jwt() ->> 'role', '') = 'service_role'
+             or p_client_id = auth.jwt() -> 'app_metadata' ->> 'client_id'
+          )
+      $body$
+    $f$;
+  end if;
+end $$;
 
 comment on function gold.snapshot_date(text) is
   'Latest loaded receipt date for one client. The single source of the as-at date used by every score and view. Returns null for a client the caller does not belong to.';

@@ -15,14 +15,21 @@ Built from the ProDash+ SSOT v1.0. Every file is idempotent: safe to re-run, in 
 | `08_security.sql` | App users/roles/branches, access helpers, grants, RLS policies | §10.4, §13 |
 | `09_api.sql` | `api` views and `api.upload_history()` — the web app's read surface | §10, §11 |
 | `10_storage.sql` | Private `raw-uploads` bucket | §10.1 |
+| `11_fk_indexes.sql` | An index behind every foreign key | — |
+| `12_user_access.sql` | `app.grant_access()` / `app.revoke_access()` for giving people dashboard access | §10.4 |
 | `seed/seed_prodairy.sql` | ProDairy reference data, engine parameters v1, holdout, draft playbooks and templates | — |
 
 ## Applying
 
 Run in the Supabase SQL editor (or `psql`) in file order, then the seed:
 
-- **ProDash+_dev** — done on 27 Sep 2026: 00 and 01 by hand; 02–10 applied as Supabase migrations (see `supabase_migrations.schema_migrations`); seed applied.
-- **ProDash+_pro** is empty → run `00` … `10`, then the seed.
+- **ProDash+_dev** — 00–12 + seed applied. 00 and 01 were run by hand on 25 Sep and recorded in `supabase_migrations.schema_migrations` afterwards, so the history reads 00 → 12 with no gaps.
+- **ProDash+_pro** is empty → apply `00` … `12` in order (each as a migration, so its history matches dev), then the seed.
+- Every file can be re-run on its own at any time without undoing a later file (tested).
+
+### Giving people access
+
+A signed-in user sees **nothing** until they have a profile. For each person: invite them under **Authentication → Users**, then in the SQL editor run `select app.grant_access(email, role, client_id, full_name, branch_ids)` — examples at the top of `12_user_access.sql`.
 
 After applying, in the Supabase dashboard: **Settings → API → Exposed schemas = `api` only** (remove `public`/`graphql_public` if unused). `bronze`, `silver` and `ops` are never exposed.
 

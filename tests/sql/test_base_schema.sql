@@ -374,4 +374,58 @@ begin
   raise notice 'PASS 9 opt-out outcome';
 end $$;
 
+/* ---------- 10. access helper, snapshot survives a re-run of 00 ---------- */
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000f', 'New.Manager@Test');
+do $$
+declare v uuid;
+begin
+  v := app.grant_access('new.manager@test', 'branch_manager', 'PRODAIRY', 'New HF manager', array['HF']);
+  assert v = '00000000-0000-0000-0000-00000000000f', 'grant_access returns the user id';
+  assert (select array_agg(branch_id) from app.user_branches where user_id = v) = array['HF'], 'branch assigned';
+  -- re-granting replaces branches
+  perform app.grant_access('new.manager@test', 'branch_manager', 'PRODAIRY', 'New BW manager', array['BW']);
+  assert (select array_agg(branch_id) from app.user_branches where user_id = v) = array['BW'], 'branches replaced';
+  begin
+    perform app.grant_access('nobody@test', 'hq', 'PRODAIRY', 'Nobody');
+    raise exception 'grant_access accepted an unknown email';
+  exception when raise_exception then
+    if sqlerrm not like 'No auth user%' then raise; end if;
+  end;
+  begin
+    perform app.grant_access('new.manager@test', 'branch_manager', 'PRODAIRY', 'x', '{}');
+    raise exception 'branch manager without branches accepted';
+  exception when raise_exception then
+    if sqlerrm not like '%at least one branch%' then raise; end if;
+  end;
+  perform app.revoke_access('new.manager@test');
+  assert not (select is_active from app.user_profiles where user_id = v), 'revoke_access deactivates';
+  assert position('published' in pg_get_functiondef('gold.snapshot_date(text)'::regprocedure)) > 0,
+         'snapshot_date has its final (08) definition';
+  assert not exists (
+    select 1
+    from pg_constraint c
+    where c.contype = 'f'
+      and c.connamespace in (select oid from pg_namespace where nspname in ('bronze','silver','gold','crm','ops','scoring','app'))
+      and not exists (select 1 from pg_index i
+                      where i.indrelid = c.conrelid
+                        and (i.indkey::int2[])[0:array_length(c.conkey,1)-1] @> c.conkey
+                        and (i.indkey::int2[])[0:array_length(c.conkey,1)-1] <@ c.conkey)),
+    'every foreign key has a covering index';
+  raise notice 'PASS 10 access helper, final definitions, FK indexes';
+end $$;
+
+begin;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a","role":"authenticated"}', true) as _jwt \gset
+do $$
+begin
+  begin
+    perform app.grant_access('hq@test', 'rmg_admin', null, 'Escalation attempt');
+    raise exception 'app user could call grant_access';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS 11 app users cannot grant access';
+end $$;
+commit;
+
 \echo 'ALL TESTS PASSED'
