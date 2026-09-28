@@ -17,14 +17,15 @@ Built from the ProDash+ SSOT v1.0. Every file is idempotent: safe to re-run, in 
 | `10_storage.sql` | Private `raw-uploads` bucket | §10.1 |
 | `11_fk_indexes.sql` | An index behind every foreign key | — |
 | `12_user_access.sql` | `app.grant_access()` / `app.revoke_access()` for giving people dashboard access | §10.4 |
+| `13_etl_role.sql` | `etl_worker` login for notebooks and pipeline jobs (set its password yourself) | §13 |
 | `seed/seed_prodairy.sql` | ProDairy reference data, engine parameters v1, holdout, draft playbooks and templates | — |
 
 ## Applying
 
 Run in the Supabase SQL editor (or `psql`) in file order, then the seed:
 
-- **ProDash+_dev** — 00–12 + seed applied. 00 and 01 were run by hand on 25 Sep and recorded in `supabase_migrations.schema_migrations` afterwards, so the history reads 00 → 12 with no gaps.
-- **ProDash+_pro** is empty → apply `00` … `12` in order (each as a migration, so its history matches dev), then the seed.
+- **ProDash+_dev** — 00–13 + seed applied. 00 and 01 were run by hand on 25 Sep and recorded in `supabase_migrations.schema_migrations` afterwards, so the history reads 00 → 12 with no gaps.
+- **ProDash+_pro** is empty → apply `00` … `13` in order (each as a migration, so its history matches dev), then the seed.
 - Re-running all files in order is safe, and so is re-running 00 or 01 on its own after later files (both tested). For any other file, re-run it followed by every later file.
 
 ### Giving people access

@@ -428,4 +428,41 @@ begin
 end $$;
 commit;
 
+/* ---------- 12. etl_worker can load data but not change the schema or read users ---------- */
+begin;
+set local role etl_worker;
+do $$
+begin
+  assert (select count(*) from gold.dim_customer) = 3, 'etl_worker bypasses RLS on gold';
+  perform count(*) from bronze.receipts_raw;
+  assert gold.issue_trader_code('PRODAIRY', 'HF') like 'PD-HF-%', 'etl_worker can issue trader codes';
+  begin
+    perform count(*) from auth.users;
+    raise exception 'etl_worker can read auth.users';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform count(*) from app.user_profiles;
+    raise exception 'etl_worker can read app users';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    execute 'create table gold.etl_should_not_create (x int)';
+    raise exception 'etl_worker can create tables';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform app.grant_access('hq@test', 'rmg_admin', null, 'x');
+    raise exception 'etl_worker can grant access';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    delete from crm.consent;
+    raise exception 'etl_worker can delete consent';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS 12 etl_worker privileges';
+end $$;
+rollback;
+
 \echo 'ALL TESTS PASSED'

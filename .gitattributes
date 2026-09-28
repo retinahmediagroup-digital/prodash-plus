@@ -1,0 +1,4 @@
+# Strip notebook outputs (they contain trader names and phone numbers) on commit.
+# Each developer registers the filter once:  nbstripout --install
+*.ipynb filter=nbstripout
+*.ipynb diff=ipynb

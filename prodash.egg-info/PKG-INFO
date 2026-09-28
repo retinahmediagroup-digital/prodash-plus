@@ -1,0 +1,20 @@
+Metadata-Version: 2.4
+Name: prodash
+Version: 0.1.0
+Summary: ProDash+ data pipeline: CSV landing, cleansing and scoring for Supabase
+Requires-Python: >=3.11
+Requires-Dist: pandas>=2.2
+Requires-Dist: numpy>=1.26
+Requires-Dist: psycopg[binary]>=3.2
+Requires-Dist: sqlalchemy>=2.0
+Requires-Dist: python-dotenv>=1.0
+Requires-Dist: requests>=2.32
+Provides-Extra: notebook
+Requires-Dist: jupyterlab>=4.2; extra == "notebook"
+Requires-Dist: ipykernel>=6.29; extra == "notebook"
+Requires-Dist: nbstripout>=0.7; extra == "notebook"
+Requires-Dist: matplotlib>=3.8; extra == "notebook"
+Requires-Dist: seaborn>=0.13; extra == "notebook"
+Requires-Dist: pandera>=0.20; extra == "notebook"
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
