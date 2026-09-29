@@ -34,7 +34,7 @@ Timeline (the GTM deck governs flow, Phase 1 scope and dates):
 | Python | Python 3.11/3.12 (not 3.13+). All logic lives in the `prodash` package; notebooks only call it. |
 | ETL runtime | Run-once worker driven by a scheduler (no daemon). `ops.load_log` is the queue (`FOR UPDATE SKIP LOCKED`). |
 | Orchestration | Prefect considered; adopt at the pipeline stage if needed (the worker code wraps unchanged). |
-| Git | Work on branch **`supabase/base-schemas`**, merge to **`main`** when asked. Never commit customer data (`.gitignore` blocks `data/`, `*.csv`, `.env`). |
+| Git | Work on branch **`supabase/base-schemas`** (Claude sessions too), merge to **`main`** only when the user asks. Never commit customer data (`.gitignore` blocks `data/`, `*.csv`, `.env`). |
 
 ## 3. Environments
 
@@ -43,11 +43,11 @@ Timeline (the GTM deck governs flow, Phase 1 scope and dates):
 | GitHub repo | `retinahmediagroup-digital/prodash-plus` (private) |
 | Supabase org | ProDash+ (Free plan). **Prod must move to Pro before real data** (backups). |
 | Supabase dev | `ProDash+_dev`, ref `mxcadrfzjamyllfbvnrb`, eu-west-2 (London). All migrations 00–14 and the seed applied. |
-| Supabase prod | `ProDash+_pro`, ref `zzgdrgsxkpuhvrpalsvn`. **Empty, untouched.** |
+| Supabase prod | `ProDash+_pro`, ref `zzgdrgsxkpuhvrpalsvn`. **Empty. Don't touch it until the user says so.** |
 | Session pooler host | `aws-0-eu-west-2.pooler.supabase.com:5432`. User `etl_worker.<project_ref>` |
 | Exposed API schema | `api` only (set in the dashboard by the user) |
 | cPanel server | User `retinah`; Python app env at `/home/retinah/virtualenv/prodash-etl/3.11`. **Outbound port 5432 is blocked; the host has been asked to open 5432/6543.** |
-| Branches | `main` = everything merged. `supabase/base-schemas` = working branch. Claude cloud sessions push to their own `claude/…` branch; merge it into `main` when asked. `feat/web-init` and `claude/festive-turing-qkvniz` are fully merged and can be deleted. |
+| Branches | `main` = last merge. `supabase/base-schemas` = working branch, ahead of `main` by the 29 Sep fixes (secret key, schedule). `feat/web-init`, `claude/festive-turing-qkvniz` and `claude/practical-hamilton-w81wo5` are fully contained in these and can be deleted. |
 
 Secrets live only in the password manager, GitHub Actions secrets and local `.env` files. Never in chat or Git.
 
@@ -99,11 +99,11 @@ Secrets live only in the password manager, GitHub Actions secrets and local `.en
 ## 5. Where we stopped
 
 The user is setting up **Python on a Windows laptop** (VS Code), step by step:
-- Python **3.14** is installed; **3.12 is being added alongside it** with `winget install --id Python.Python.3.12 -e`.
-- Waiting for the output of `py -0`.
+- Python **3.12** is installed alongside **3.14**. 3.14 is the default, so always create the venv with `py -3.12`.
+- Next: step 1.
 
 Remaining laptop steps:
-1. `git checkout main && git pull` (or clone).
+1. Get the code on the working branch: `git checkout supabase/base-schemas && git pull` (or clone, then check out that branch).
 2. `py -3.12 -m venv .venv` and `.venv\Scripts\activate`.
 3. `pip install -e ".[notebook,dev]"`, `python -m ipykernel install --user --name prodash --display-name "ProDash+"`, `nbstripout --install`.
 4. `.env` from `.env.example`: `PRODASH_DB_URL` = session pooler as `etl_worker`, plus `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` = the **secret key** (`sb_secret_…`, Settings → API Keys). Legacy service_role keys also work, but Supabase retires them at the end of 2026, as the Nov–Dec promo ends.
