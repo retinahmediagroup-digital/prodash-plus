@@ -24,7 +24,7 @@ It never runs continuously. A scheduler starts it, it processes whatever is wait
 
 | Phase | Runner | Status |
 |---|---|---|
-| Interim | GitHub Actions: `.github/workflows/etl-worker.yml`, every 30 min 07:00–21:00 Harare, nightly at 02:00 | Active once secrets are set and the workflow is on `main` |
+| Interim | GitHub Actions: `.github/workflows/etl-worker.yml`, every 30 min (:07 and :37) 07:07–20:37 Harare, nightly at 02:07 | Active once secrets are set and the workflow is on `main` |
 | Target | cPanel cron on the agency server (user `retinah`) | Waiting for the host to open outbound TCP 5432/6543 |
 
 ## GitHub Actions setup (interim)
@@ -35,7 +35,7 @@ Repository → **Settings → Secrets and variables → Actions → New reposito
 |---|---|
 | `PRODASH_DB_URL` | Session pooler URL as `etl_worker`: `postgresql://etl_worker.mxcadrfzjamyllfbvnrb:<password>@aws-0-eu-west-2.pooler.supabase.com:5432/postgres` |
 | `SUPABASE_URL` | `https://mxcadrfzjamyllfbvnrb.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role / secret key (only needed by steps that read Storage) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Secret key `sb_secret_…` from Settings → API Keys (only needed by steps that read Storage). Legacy service_role keys also work until Supabase retires them at the end of 2026. |
 
 Until `PRODASH_DB_URL` is set, scheduled runs skip with a notice. To run it by hand: **Actions → ETL worker → Run workflow**.
 
