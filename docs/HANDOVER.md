@@ -100,11 +100,12 @@ Secrets live only in the password manager, GitHub Actions secrets and local `.en
 
 The user is setting up **Python on a Windows laptop** (VS Code), step by step:
 - Python **3.12** is installed alongside **3.14**. 3.14 is the default, so always create the venv with `py -3.12`.
-- Next: step 1.
+- Repo at `C:\Users\User\prodash-plus`, on `supabase/base-schemas` (step 1 done).
+- Step 3 failed because the laptop's `.venv` dated from 28 Sep and was built with 3.14. Recreating it with 3.12 kept the 3.14 packages, and pip skipped them as already installed. Fix: delete `.venv` and redo steps 2–3.
 
 Remaining laptop steps:
 1. Get the code on the working branch: `git checkout supabase/base-schemas && git pull` (or clone, then check out that branch).
-2. `py -3.12 -m venv .venv` and `.venv\Scripts\activate`.
+2. Delete any older `.venv` (`Remove-Item -Recurse -Force .venv`), then `py -3.12 -m venv .venv` and `.venv\Scripts\activate`.
 3. `pip install -e ".[notebook,dev]"`, `python -m ipykernel install --user --name prodash --display-name "ProDash+"`, `nbstripout --install`.
 4. `.env` from `.env.example`: `PRODASH_DB_URL` = session pooler as `etl_worker`, plus `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` = the **secret key** (`sb_secret_…`, Settings → API Keys). Legacy service_role keys also work, but Supabase retires them at the end of 2026, as the Nov–Dec promo ends.
 5. `python -m prodash.check` should end with **OK**. This also checks Storage access with the key, which has never been tested against Supabase. The first real upload happens in the first `land_file`.

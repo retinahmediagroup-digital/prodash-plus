@@ -16,6 +16,11 @@ cp .env.example .env                 # then fill in PRODASH_DB_URL and the secre
 python -m prodash.check              # should end with OK
 ```
 
+If a `.venv` already exists from another Python version, delete it first
+(Windows: `Remove-Item -Recurse -Force .venv`). `venv` reuses the folder, pip
+then reports the old packages as already installed, and their compiled parts
+fail to load, e.g. `No module named 'rpds.rpds'` or numpy's `_multiarray_umath`.
+
 In VS Code, open a notebook and pick the **ProDash+** kernel (or `.venv`).
 
 ## First cell of every notebook
