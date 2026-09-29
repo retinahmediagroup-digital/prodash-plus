@@ -100,8 +100,11 @@ Secrets live only in the password manager, GitHub Actions secrets and local `.en
 
 The user is setting up **Python on a Windows laptop** (VS Code), step by step:
 - Python **3.12** is installed alongside **3.14**. 3.14 is the default, so always create the venv with `py -3.12`.
-- Repo at `C:\Users\User\prodash-plus`, on `supabase/base-schemas` (step 1 done).
-- Step 3 failed because the laptop's `.venv` dated from 28 Sep and was built with 3.14. Recreating it with 3.12 kept the 3.14 packages, and pip skipped them as already installed. Fix: delete `.venv` and redo steps 2–3.
+- Repo at `C:\Users\User\prodash-plus`, on `supabase/base-schemas`.
+- **Steps 1–5 done on 29 Sep.** `python -m prodash.check` passes from the laptop, including Storage. The laptop `.env` uses the legacy service_role key; swap it for an `sb_secret_` key before the end of 2026.
+- Step 3 first failed because the laptop's `.venv` dated from 28 Sep and was built with 3.14. Recreating it with 3.12 kept the 3.14 packages, and pip skipped them as already installed. Fix: delete `.venv` and redo steps 2–3.
+- **Open:** the `etl_worker` password appeared in a chat screenshot on 29 Sep. Change it (SQL editor on dev), then update the GitHub secret `PRODASH_DB_URL` and the laptop `.env`.
+- Next: step 6.
 
 Remaining laptop steps:
 1. Get the code on the working branch: `git checkout supabase/base-schemas && git pull` (or clone, then check out that branch).
