@@ -1,0 +1,74 @@
+# ProDash+ ETL worker: processes landed files (bronze -> silver -> gold -> scoring).
+#
+# Interim runner until the cPanel server can reach Supabase on port 5432.
+# To hand over to cPanel: set repository variable ETL_RUNNER=cpanel
+# (Settings > Secrets and variables > Actions > Variables); every job here then skips.
+# Scheduled runs only fire from the default branch (main).
+name: ETL worker
+
+on:
+  schedule:
+    - cron: "*/30 5-18 * * *"   # every 30 min, 07:00-20:59 Harare time (UTC+2)
+    - cron: "0 0 * * *"         # 02:00 Harare: nightly re-score
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "once = process waiting loads, nightly = re-score all branches"
+        type: choice
+        options: [once, nightly]
+        default: once
+
+concurrency:
+  group: etl-worker
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    if: vars.ETL_RUNNER != 'cpanel'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check configuration
+        id: cfg
+        env:
+          PRODASH_DB_URL: ${{ secrets.PRODASH_DB_URL }}
+        run: |
+          if [ -z "$PRODASH_DB_URL" ]; then
+            echo "::notice::PRODASH_DB_URL secret not set; skipping. See docs/etl_worker.md."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.cfg.outputs.ready == 'true'
+
+      - uses: actions/setup-python@v5
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        if: steps.cfg.outputs.ready == 'true'
+        run: pip install -e .
+
+      - name: Run worker
+        if: steps.cfg.outputs.ready == 'true'
+        env:
+          PRODASH_DB_URL: ${{ secrets.PRODASH_DB_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PRODASH_WORKER_NAME: github-actions
+          EVENT_SCHEDULE: ${{ github.event.schedule }}
+          INPUT_MODE: ${{ inputs.mode }}
+        run: |
+          if [ "$EVENT_SCHEDULE" = "0 0 * * *" ] || [ "$INPUT_MODE" = "nightly" ]; then
+            python -m prodash.worker --nightly
+          else
+            python -m prodash.worker --once
+          fi

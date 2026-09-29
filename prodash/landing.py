@@ -17,6 +17,7 @@ Cleansing to silver and publishing to gold happen after this, in your notebooks.
 
 import hashlib
 import io
+import warnings
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -58,7 +59,10 @@ def read_raw_csv(data: bytes, encoding: str | None = None) -> pd.DataFrame:
 
 
 def parse_receipt_dates(values: pd.Series, date_format: str | None, dayfirst: bool) -> pd.Series:
-    return pd.to_datetime(values.replace("", None), format=date_format, dayfirst=dayfirst, errors="coerce")
+    with warnings.catch_warnings():
+        # pandas warns when dayfirst meets an ISO date (2026-09-20); ISO parses correctly either way
+        warnings.simplefilter("ignore", UserWarning)
+        return pd.to_datetime(values.replace("", None), format=date_format, dayfirst=dayfirst, errors="coerce")
 
 
 def land_file(

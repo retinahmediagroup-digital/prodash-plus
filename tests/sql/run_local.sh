@@ -49,7 +49,7 @@ run "$ROOT/sql/00_init_schemas.sql"
 run "$ROOT/sql/01_dimensions.sql"
 assertions
 
-echo "== Scenario B: upgrade ProDash+_dev (00, 01 + current data) with 02..12"
+echo "== Scenario B: upgrade ProDash+_dev (00, 01 + current data) with 02..14"
 fresh_db
 run "$ROOT/sql/00_init_schemas.sql"
 run "$ROOT/sql/01_dimensions.sql"
