@@ -3,6 +3,8 @@
 Read this first in any new working session. It records what exists, what was decided, and what comes next.
 The approved scope document is `docs/ProDash_Plus_SSOT.docx` (SSOT v1.0; owners Tinashe and Alvon).
 
+**Working rule (user's instruction, 30 Sep):** before writing or changing any script, describe what you will write and wait for the user's OK. This covers Python, SQL, workflow files and notebook code.
+
 ---
 
 ## 1. What ProDash+ is
@@ -35,6 +37,7 @@ Timeline (the GTM deck governs flow, Phase 1 scope and dates):
 | ETL runtime | Run-once worker driven by a scheduler (no daemon). `ops.load_log` is the queue (`FOR UPDATE SKIP LOCKED`). |
 | Orchestration | Prefect considered; adopt at the pipeline stage if needed (the worker code wraps unchanged). |
 | Git | Work on branch **`supabase/base-schemas`** (Claude sessions too), merge to **`main`** only when the user asks. Never commit customer data (`.gitignore` blocks `data/`, `*.csv`, `.env`). |
+| Working with the assistant | Confirm with the user before writing or changing any script (Python, SQL, workflow, notebook code): say what will be written and wait for an OK. The user writes the notebooks; the assistant assists. |
 
 ## 3. Environments
 
