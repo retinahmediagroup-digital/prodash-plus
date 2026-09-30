@@ -84,7 +84,8 @@ Secrets live only in the password manager, GitHub Actions secrets and local `.en
 - Secrets set: `PRODASH_DB_URL`, `SUPABASE_URL`.
 - Switch-off: set repo variable `ETL_RUNNER=cpanel`.
 - **First run verified 29 Sep:** `ops.etl_runs` run 1, worker `github-actions`, `succeeded` (started by hand).
-- **No scheduled run had fired by 12:30 UTC on 29 Sep.** The old `*/30` schedule was registered at 10:18 UTC and skipped four slots. Check the Actions tab after the new minutes reach `main`.
+- **GitHub runs the schedule late and skips most slots.** From 10:18 UTC on 29 Sep to 07:50 UTC on 30 Sep, only 2 of 23 half-hourly slots ran (16:36 and 21:19 UTC), and the 00:00 nightly ran at 03:20. `ops.etl_runs` runs 2–5 all came from GitHub. The :07/:37 minutes on `supabase/base-schemas` reach `main` only when it is merged. For Test Day, don't rely on the timing: run `python -m prodash.worker --once` by hand after landing a file, until cPanel cron takes over.
+- Actions warns that `actions/checkout@v4` and `actions/setup-python@v5` target Node 20; GitHub already runs them on Node 24. Bump to `checkout@v5` / `setup-python@v6` to clear the warning.
 
 **Tests**
 - `tests/sql/run_local.sh`: 17 SQL test groups × 2 scenarios (fresh install / dev upgrade).
@@ -103,7 +104,7 @@ The user is setting up **Python on a Windows laptop** (VS Code), step by step:
 - Repo at `C:\Users\User\prodash-plus`, on `supabase/base-schemas`.
 - **Steps 1–5 done on 29 Sep.** `python -m prodash.check` passes from the laptop, including Storage. The laptop `.env` uses the legacy service_role key; swap it for an `sb_secret_` key before the end of 2026.
 - Step 3 first failed because the laptop's `.venv` dated from 28 Sep and was built with 3.14. Recreating it with 3.12 kept the 3.14 packages, and pip skipped them as already installed. Fix: delete `.venv` and redo steps 2–3.
-- **Open:** the `etl_worker` password appeared in a chat screenshot on 29 Sep. Change it (SQL editor on dev), then update the GitHub secret `PRODASH_DB_URL` and the laptop `.env`.
+- The `etl_worker` password appeared in a chat screenshot on 29 Sep and was changed on 30 Sep. GitHub Actions connects with the new one (`ops.etl_runs` run 5, 07:46 UTC).
 - Next: step 6.
 
 Remaining laptop steps:
@@ -142,7 +143,7 @@ Remaining laptop steps:
 ## 8. Known caveats
 
 - Nobody can see data in the app until they have a profile (`app.grant_access`); there are no users yet.
-- The GitHub schedule can start a few minutes late. Private-repo Actions minutes are sized for about 30 runs a day.
+- The GitHub schedule can start hours late or skip runs (see Automation). Private-repo Actions minutes are sized for about 30 runs a day.
 - The advisor still lists 11 "unindexed" foreign keys. These are covered by `(client_id, branch_id, …)` indexes; the advisor only counts exact column order.
 - Security advisor, as intended: "RLS enabled, no policy" on the backend tables (deny-all for API roles), and a warning that `api.upload_history()` is a SECURITY DEFINER function signed-in users can call. `ops` is not reachable from the API, so the function checks access itself.
 - `public.rls_auto_enable()` is Supabase's own event trigger; if the advisor warns about it, the warning is harmless.
