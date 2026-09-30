@@ -92,7 +92,7 @@ Secrets live only in the password manager, GitHub Actions secrets and local `.en
 - Both need a throwaway local Postgres. Never point them at Supabase.
 - Last full run 29 Sep: all passed on Postgres 16 with Python 3.11 and 3.12 (pip now installs pandas 3.0 and SQLAlchemy 2.1).
 
-**Docs:** `docs/ProDash_Plus_SSOT.docx`, `docs/ProDash_Plus_Medallion_Architecture.pptx`, `docs/etl_worker.md` (runbook incl. cPanel switch-over), `notebooks/README.md`, `sql/README.md`.
+**Docs:** `docs/ProDash_Plus_SSOT.docx`, `docs/ProDash_Plus_Medallion_Architecture.pptx`, `docs/ProDash_Plus_Backend_Architecture.pptx` (13-slide technical deck with speaker notes: tools, schemas, pipeline, engine rules, security, status), `docs/etl_worker.md` (runbook incl. cPanel switch-over), `notebooks/README.md`, `sql/README.md`.
 
 **Web (`web/`):** Next.js 16 scaffold only. No Supabase wiring or screens yet.
 
