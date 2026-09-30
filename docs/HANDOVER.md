@@ -47,7 +47,7 @@ Timeline (the GTM deck governs flow, Phase 1 scope and dates):
 | Session pooler host | `aws-0-eu-west-2.pooler.supabase.com:5432`. User `etl_worker.<project_ref>` |
 | Exposed API schema | `api` only (set in the dashboard by the user) |
 | cPanel server | User `retinah`; Python app env at `/home/retinah/virtualenv/prodash-etl/3.11`. **Outbound port 5432 is blocked; the host has been asked to open 5432/6543.** |
-| Branches | `main` = last merge. `supabase/base-schemas` = working branch, ahead of `main` by the 29 Sep fixes (secret key, schedule). `feat/web-init`, `claude/festive-turing-qkvniz` and `claude/practical-hamilton-w81wo5` are fully contained in these and can be deleted. |
+| Branches | `main` = last merge (29 Sep, `f8fd7db`). `supabase/base-schemas` = working branch, ahead of `main` by the 29–30 Sep work (secret keys, ETL schedule, Node 24 actions, backend deck). Merge to `main` only when the user asks. On 30 Sep the user agreed to a merge, but this session's permission settings stopped Claude from changing `main`; the merge is still to do, by the user or once they allow it. `feat/web-init`, `claude/festive-turing-qkvniz` and `claude/practical-hamilton-w81wo5` are fully merged and can be deleted. |
 
 Secrets live only in the password manager, GitHub Actions secrets and local `.env` files. Never in chat or Git.
 
@@ -80,12 +80,12 @@ Secrets live only in the password manager, GitHub Actions secrets and local `.en
 | `cleanse.py`, `publish.py`, `scoring.py` | **Placeholders** (raise `StepNotReady`). Logic to be developed in notebooks, then moved here. |
 
 **Automation**
-- `.github/workflows/etl-worker.yml` runs every 30 min at :07 and :37, 07:07–20:37 Harare, plus 02:07 nightly. The minutes avoid :00, where GitHub delays or drops scheduled runs under load.
-- Secrets set: `PRODASH_DB_URL`, `SUPABASE_URL`.
+- `.github/workflows/etl-worker.yml` runs every 30 min, 07:00–21:00 Harare, plus a nightly run. On `supabase/base-schemas` the minutes are :07 and :37 (02:07 nightly), avoiding :00, where GitHub delays or drops scheduled runs under load; `main` keeps `*/30` and 02:00 until the merge.
+- Secrets set: `PRODASH_DB_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
 - Switch-off: set repo variable `ETL_RUNNER=cpanel`.
 - **First run verified 29 Sep:** `ops.etl_runs` run 1, worker `github-actions`, `succeeded` (started by hand).
-- **GitHub runs the schedule late and skips most slots.** From 10:18 UTC on 29 Sep to 07:50 UTC on 30 Sep, only 2 of 23 half-hourly slots ran (16:36 and 21:19 UTC), and the 00:00 nightly ran at 03:20. `ops.etl_runs` runs 2–5 all came from GitHub. The :07/:37 minutes on `supabase/base-schemas` reach `main` only when it is merged. For Test Day, don't rely on the timing: run `python -m prodash.worker --once` by hand after landing a file, until cPanel cron takes over.
-- Actions warns that `actions/checkout@v4` and `actions/setup-python@v5` target Node 20; GitHub already runs them on Node 24. Bump to `checkout@v5` / `setup-python@v6` to clear the warning.
+- **GitHub runs the schedule late and skips most slots.** From 10:18 UTC on 29 Sep to 07:50 UTC on 30 Sep, only 2 of 23 half-hourly slots ran (16:36 and 21:19 UTC), and the 00:00 nightly ran at 03:20. `ops.etl_runs` runs 2–5 all came from GitHub. The :07/:37 minutes reach `main` only when it is merged; then check whether GitHub skips fewer slots. For Test Day, don't rely on the timing: run `python -m prodash.worker --once` by hand after landing a file, until cPanel cron takes over.
+- On `supabase/base-schemas` the workflow uses `actions/checkout@v5` and `actions/setup-python@v6` (Node 24). A run from that branch on 30 Sep (`ops.etl_runs` run 6) succeeded with no Node 20 warning. `main` keeps v4/v5 until the merge.
 
 **Tests**
 - `tests/sql/run_local.sh`: 17 SQL test groups × 2 scenarios (fresh install / dev upgrade).
@@ -105,7 +105,8 @@ The user is setting up **Python on a Windows laptop** (VS Code), step by step:
 - **Steps 1–5 done on 29 Sep.** `python -m prodash.check` passes from the laptop, including Storage. The laptop `.env` uses the legacy service_role key; swap it for an `sb_secret_` key before the end of 2026.
 - Step 3 first failed because the laptop's `.venv` dated from 28 Sep and was built with 3.14. Recreating it with 3.12 kept the 3.14 packages, and pip skipped them as already installed. Fix: delete `.venv` and redo steps 2–3.
 - The `etl_worker` password appeared in a chat screenshot on 29 Sep and was changed on 30 Sep. GitHub Actions connects with the new one (`ops.etl_runs` run 5, 07:46 UTC).
-- Next: step 6.
+- **Ready for data, as far as landing:** `land_file()` puts a file into bronze and Storage. Cleansing, publishing and scoring are still placeholders, so nothing reaches gold or the dashboards until they are written from the real file. Other branches' files need their codes in `gold.dim_branch` first (only HF exists).
+- Next: step 6, once the CSV (or a sample) arrives.
 
 Remaining laptop steps:
 1. Get the code on the working branch: `git checkout supabase/base-schemas && git pull` (or clone, then check out that branch).
