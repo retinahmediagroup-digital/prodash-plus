@@ -7,14 +7,19 @@ in the automated pipeline.
 ## One-time setup (VS Code terminal, repo root)
 
 ```bash
-python -m venv .venv
+python3.12 -m venv .venv             # Windows: py -3.12 -m venv .venv  (3.11 or 3.12, not 3.13+)
 source .venv/bin/activate            # Windows: .venv\Scripts\activate
 pip install -e ".[notebook,dev]"
 python -m ipykernel install --user --name prodash --display-name "ProDash+"
 nbstripout --install                 # REQUIRED: strips outputs (personal data) on commit
-cp .env.example .env                 # then fill in PRODASH_DB_URL and the service key
+cp .env.example .env                 # then fill in PRODASH_DB_URL and the secret key (sb_secret_...)
 python -m prodash.check              # should end with OK
 ```
+
+If a `.venv` already exists from another Python version, delete it first
+(Windows: `Remove-Item -Recurse -Force .venv`). `venv` reuses the folder, pip
+then reports the old packages as already installed, and their compiled parts
+fail to load, e.g. `No module named 'rpds.rpds'` or numpy's `_multiarray_umath`.
 
 In VS Code, open a notebook and pick the **ProDash+** kernel (or `.venv`).
 

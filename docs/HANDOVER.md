@@ -34,7 +34,7 @@ Timeline (the GTM deck governs flow, Phase 1 scope and dates):
 | Python | Python 3.11/3.12 (not 3.13+). All logic lives in the `prodash` package; notebooks only call it. |
 | ETL runtime | Run-once worker driven by a scheduler (no daemon). `ops.load_log` is the queue (`FOR UPDATE SKIP LOCKED`). |
 | Orchestration | Prefect considered; adopt at the pipeline stage if needed (the worker code wraps unchanged). |
-| Git | Work on branch **`supabase/base-schemas`**, merge to **`main`** when asked. Never commit customer data (`.gitignore` blocks `data/`, `*.csv`, `.env`). |
+| Git | Work on branch **`supabase/base-schemas`** (Claude sessions too), merge to **`main`** only when the user asks. Never commit customer data (`.gitignore` blocks `data/`, `*.csv`, `.env`). |
 
 ## 3. Environments
 
@@ -43,11 +43,11 @@ Timeline (the GTM deck governs flow, Phase 1 scope and dates):
 | GitHub repo | `retinahmediagroup-digital/prodash-plus` (private) |
 | Supabase org | ProDash+ (Free plan). **Prod must move to Pro before real data** (backups). |
 | Supabase dev | `ProDash+_dev`, ref `mxcadrfzjamyllfbvnrb`, eu-west-2 (London). All migrations 00–14 and the seed applied. |
-| Supabase prod | `ProDash+_pro`, ref `zzgdrgsxkpuhvrpalsvn`. **Empty, untouched.** |
+| Supabase prod | `ProDash+_pro`, ref `zzgdrgsxkpuhvrpalsvn`. **Empty. Don't touch it until the user says so.** |
 | Session pooler host | `aws-0-eu-west-2.pooler.supabase.com:5432`. User `etl_worker.<project_ref>` |
 | Exposed API schema | `api` only (set in the dashboard by the user) |
 | cPanel server | User `retinah`; Python app env at `/home/retinah/virtualenv/prodash-etl/3.11`. **Outbound port 5432 is blocked; the host has been asked to open 5432/6543.** |
-| Branches | `main` = everything merged (`ca3514d`). `supabase/base-schemas` = working branch, same commit. `feat/web-init` and `claude/festive-turing-qkvniz` are fully merged and can be deleted. |
+| Branches | `main` = last merge (29 Sep, `f8fd7db`). `supabase/base-schemas` = working branch, ahead of `main` by the 29–30 Sep work (secret keys, ETL schedule, Node 24 actions, backend deck). Merge to `main` only when the user asks. On 30 Sep the user agreed to a merge, but this session's permission settings stopped Claude from changing `main`; the merge is still to do, by the user or once they allow it. `feat/web-init`, `claude/festive-turing-qkvniz` and `claude/practical-hamilton-w81wo5` are fully merged and can be deleted. |
 
 Secrets live only in the password manager, GitHub Actions secrets and local `.env` files. Never in chat or Git.
 
@@ -80,32 +80,40 @@ Secrets live only in the password manager, GitHub Actions secrets and local `.en
 | `cleanse.py`, `publish.py`, `scoring.py` | **Placeholders** (raise `StepNotReady`). Logic to be developed in notebooks, then moved here. |
 
 **Automation**
-- `.github/workflows/etl-worker.yml` runs every 30 min 07:00–21:00 Harare, plus 02:00 nightly.
-- Secrets set: `PRODASH_DB_URL`, `SUPABASE_URL`.
+- `.github/workflows/etl-worker.yml` runs every 30 min, 07:00–21:00 Harare, plus a nightly run. On `supabase/base-schemas` the minutes are :07 and :37 (02:07 nightly), avoiding :00, where GitHub delays or drops scheduled runs under load; `main` keeps `*/30` and 02:00 until the merge.
+- Secrets set: `PRODASH_DB_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
 - Switch-off: set repo variable `ETL_RUNNER=cpanel`.
-- **First run verified 29 Sep:** `ops.etl_runs` run 1, worker `github-actions`, `succeeded`.
+- **First run verified 29 Sep:** `ops.etl_runs` run 1, worker `github-actions`, `succeeded` (started by hand).
+- **GitHub runs the schedule late and skips most slots.** From 10:18 UTC on 29 Sep to 07:50 UTC on 30 Sep, only 2 of 23 half-hourly slots ran (16:36 and 21:19 UTC), and the 00:00 nightly ran at 03:20. `ops.etl_runs` runs 2–5 all came from GitHub. The :07/:37 minutes reach `main` only when it is merged; then check whether GitHub skips fewer slots. For Test Day, don't rely on the timing: run `python -m prodash.worker --once` by hand after landing a file, until cPanel cron takes over.
+- On `supabase/base-schemas` the workflow uses `actions/checkout@v5` and `actions/setup-python@v6` (Node 24). A run from that branch on 30 Sep (`ops.etl_runs` run 6) succeeded with no Node 20 warning. `main` keeps v4/v5 until the merge.
 
 **Tests**
 - `tests/sql/run_local.sh`: 17 SQL test groups × 2 scenarios (fresh install / dev upgrade).
-- `tests/python`: 11 pytest tests (contract, landing, worker).
+- `tests/python`: 13 pytest tests (contract, landing, storage, worker).
 - Both need a throwaway local Postgres. Never point them at Supabase.
+- Last full run 29 Sep: all passed on Postgres 16 with Python 3.11 and 3.12 (pip now installs pandas 3.0 and SQLAlchemy 2.1).
 
-**Docs:** `docs/ProDash_Plus_SSOT.docx`, `docs/ProDash_Plus_Medallion_Architecture.pptx`, `docs/etl_worker.md` (runbook incl. cPanel switch-over), `notebooks/README.md`, `sql/README.md`.
+**Docs:** `docs/ProDash_Plus_SSOT.docx`, `docs/ProDash_Plus_Medallion_Architecture.pptx`, `docs/ProDash_Plus_Backend_Architecture.pptx` (13-slide technical deck with speaker notes: tools, schemas, pipeline, engine rules, security, status), `docs/etl_worker.md` (runbook incl. cPanel switch-over), `notebooks/README.md`, `sql/README.md`.
 
 **Web (`web/`):** Next.js 16 scaffold only. No Supabase wiring or screens yet.
 
 ## 5. Where we stopped
 
 The user is setting up **Python on a Windows laptop** (VS Code), step by step:
-- Python **3.14** is installed; **3.12 is being added alongside it** with `winget install --id Python.Python.3.12 -e`.
-- Waiting for the output of `py -0`.
+- Python **3.12** is installed alongside **3.14**. 3.14 is the default, so always create the venv with `py -3.12`.
+- Repo at `C:\Users\User\prodash-plus`, on `supabase/base-schemas`.
+- **Steps 1–5 done on 29 Sep.** `python -m prodash.check` passes from the laptop, including Storage. The laptop `.env` uses the legacy service_role key; swap it for an `sb_secret_` key before the end of 2026.
+- Step 3 first failed because the laptop's `.venv` dated from 28 Sep and was built with 3.14. Recreating it with 3.12 kept the 3.14 packages, and pip skipped them as already installed. Fix: delete `.venv` and redo steps 2–3.
+- The `etl_worker` password appeared in a chat screenshot on 29 Sep and was changed on 30 Sep. GitHub Actions connects with the new one (`ops.etl_runs` run 5, 07:46 UTC).
+- **Ready for data, as far as landing:** `land_file()` puts a file into bronze and Storage. Cleansing, publishing and scoring are still placeholders, so nothing reaches gold or the dashboards until they are written from the real file. Other branches' files need their codes in `gold.dim_branch` first (only HF exists).
+- Next: step 6, once the CSV (or a sample) arrives.
 
 Remaining laptop steps:
-1. `git checkout main && git pull` (or clone).
-2. `py -3.12 -m venv .venv` and `.venv\Scripts\activate`.
+1. Get the code on the working branch: `git checkout supabase/base-schemas && git pull` (or clone, then check out that branch).
+2. Delete any older `.venv` (`Remove-Item -Recurse -Force .venv`), then `py -3.12 -m venv .venv` and `.venv\Scripts\activate`.
 3. `pip install -e ".[notebook,dev]"`, `python -m ipykernel install --user --name prodash --display-name "ProDash+"`, `nbstripout --install`.
-4. `.env` from `.env.example`: `PRODASH_DB_URL` = session pooler as `etl_worker`, plus `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (legacy service_role key).
-5. `python -m prodash.check` should end with **OK** (this also tests the Storage upload, never tested from the sandbox).
+4. `.env` from `.env.example`: `PRODASH_DB_URL` = session pooler as `etl_worker`, plus `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` = the **secret key** (`sb_secret_…`, Settings → API Keys). Legacy service_role keys also work, but Supabase retires them at the end of 2026, as the Nov–Dec promo ends.
+5. `python -m prodash.check` should end with **OK**. This also checks Storage access with the key, which has never been tested against Supabase. The first real upload happens in the first `land_file`.
 6. Create `notebooks/01_profile.ipynb` with the ProDash+ kernel. **The user writes the notebooks; the assistant assists.**
 7. **dbt setup** (`dbt/`, dbt-postgres, profile pointing to dev) was requested. It needs a decision on its own schema and role grants.
 
@@ -136,9 +144,12 @@ Remaining laptop steps:
 ## 8. Known caveats
 
 - Nobody can see data in the app until they have a profile (`app.grant_access`); there are no users yet.
-- The GitHub schedule can start a few minutes late. Private-repo Actions minutes are sized for about 30 runs a day.
+- The GitHub schedule can start hours late or skip runs (see Automation). Private-repo Actions minutes are sized for about 30 runs a day.
 - The advisor still lists 11 "unindexed" foreign keys. These are covered by `(client_id, branch_id, …)` indexes; the advisor only counts exact column order.
-- `public.rls_auto_enable()` is Supabase's own event trigger; its advisor warning is harmless.
+- Security advisor, as intended: "RLS enabled, no policy" on the backend tables (deny-all for API roles), and a warning that `api.upload_history()` is a SECURITY DEFINER function signed-in users can call. `ops` is not reachable from the API, so the function checks access itself.
+- `public.rls_auto_enable()` is Supabase's own event trigger; if the advisor warns about it, the warning is harmless.
+- Supabase retires legacy `anon`/`service_role` keys at the end of 2026. `prodash` accepts the new secret key. The web app should use the publishable key (`sb_publishable_…`).
+- The Claude cloud sandbox can't reach `*.supabase.co` directly (network policy). It works through the Supabase connector (SQL, migrations, advisors) instead.
 - LibreOffice doesn't work in the assistant's sandbox, so generated `.docx`/`.pptx` files were validated but not visually rendered. Open them in Office to check the layout.
 
 ## 9. How to verify the current state quickly

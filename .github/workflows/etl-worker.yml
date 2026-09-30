@@ -3,13 +3,14 @@
 # Interim runner until the cPanel server can reach Supabase on port 5432.
 # To hand over to cPanel: set repository variable ETL_RUNNER=cpanel
 # (Settings > Secrets and variables > Actions > Variables); every job here then skips.
-# Scheduled runs only fire from the default branch (main).
+# Scheduled runs only fire from the default branch (main). The minutes avoid
+# :00, where GitHub delays or drops scheduled runs under load.
 name: ETL worker
 
 on:
   schedule:
-    - cron: "*/30 5-18 * * *"   # every 30 min, 07:00-20:59 Harare time (UTC+2)
-    - cron: "0 0 * * *"         # 02:00 Harare: nightly re-score
+    - cron: "7,37 5-18 * * *"   # every 30 min, 07:07-20:37 Harare time (UTC+2)
+    - cron: "7 0 * * *"         # 02:07 Harare: nightly re-score
   workflow_dispatch:
     inputs:
       mode:
@@ -43,10 +44,10 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: steps.cfg.outputs.ready == 'true'
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         if: steps.cfg.outputs.ready == 'true'
         with:
           python-version: "3.11"
@@ -67,7 +68,7 @@ jobs:
           EVENT_SCHEDULE: ${{ github.event.schedule }}
           INPUT_MODE: ${{ inputs.mode }}
         run: |
-          if [ "$EVENT_SCHEDULE" = "0 0 * * *" ] || [ "$INPUT_MODE" = "nightly" ]; then
+          if [ "$EVENT_SCHEDULE" = "7 0 * * *" ] || [ "$INPUT_MODE" = "nightly" ]; then
             python -m prodash.worker --nightly
           else
             python -m prodash.worker --once

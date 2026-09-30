@@ -6,6 +6,7 @@ import requests
 
 from prodash.config import settings
 from prodash.db import read_sql
+from prodash.storage import auth_headers
 
 
 def main() -> int:
@@ -32,8 +33,7 @@ def main() -> int:
 
     if s.supabase_url and s.service_key:
         resp = requests.get(f"{s.supabase_url.rstrip('/')}/storage/v1/bucket/{s.bucket}",
-                            headers={"Authorization": f"Bearer {s.service_key}", "apikey": s.service_key},
-                            timeout=30)
+                            headers=auth_headers(s.service_key), timeout=30)
         if resp.ok:
             print(f"storage  : bucket {s.bucket} reachable (public={resp.json().get('public')})")
         else:

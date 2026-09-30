@@ -1,6 +1,6 @@
 """Original CSV files in the private Supabase Storage bucket (default: raw-uploads).
 
-Uses the service role key from .env, so run it only on trusted machines.
+Uses the secret key from .env, so run it only on trusted machines.
 """
 
 from pathlib import Path
@@ -10,14 +10,23 @@ import requests
 from prodash.config import settings
 
 
+def auth_headers(key: str) -> dict[str, str]:
+    """Headers for a Supabase server key.
+
+    A secret key (sb_secret_...) is not a JWT: it goes in `apikey` only. A legacy
+    service_role key is a JWT and goes in both headers. Supabase retires legacy
+    keys at the end of 2026.
+    """
+    if key.startswith("sb_"):
+        return {"apikey": key}
+    return {"Authorization": f"Bearer {key}", "apikey": key}
+
+
 def _base() -> tuple[str, dict[str, str]]:
     s = settings()
     if not (s.supabase_url and s.service_key):
         raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env for storage access.")
-    return (
-        f"{s.supabase_url.rstrip('/')}/storage/v1/object",
-        {"Authorization": f"Bearer {s.service_key}", "apikey": s.service_key},
-    )
+    return f"{s.supabase_url.rstrip('/')}/storage/v1/object", auth_headers(s.service_key)
 
 
 def upload(data: bytes, path: str, content_type: str = "text/csv") -> str:
