@@ -62,6 +62,31 @@ Until `PRODASH_DB_URL` is set, scheduled runs skip with a notice. To run it by h
 4. Watch a few runs (query below). Then, in GitHub, set repository variable `ETL_RUNNER` = `cpanel`, so the Actions jobs skip from then on.
 5. To update the code on the server later: `cd ~/prodash-plus && git pull && pip install -e .`
 
+## API feeds (`prodash.sync`)
+
+For shops whose system has an API. Needs `sql/15_api_source.sql` applied (drafted, not yet on dev).
+
+1. Write the source in `prodash/sources/pos_api.py`: the field maps and `fetch()` (the file says how).
+2. Register each shop, inactive, and map its product codes (from a notebook, as `etl_worker`):
+   ```sql
+   insert into ops.source_sync (client_id, source_name, branch_id, external_id)
+   values ('PRODAIRY', 'pos_api', 'HF', '<the shop''s id in their system>');
+   insert into gold.ref_product_code (client_id, source_name, external_code, product_id)
+   values ('PRODAIRY', 'pos_api', '<their product code>', 'LIFE_250ML');
+   ```
+3. Try one shop by hand: `update ops.source_sync set is_active = true where ...`, then `python -m prodash.sync --once --source pos_api`. Check `ops.source_sync` (cursor, `last_error`) and `ops.load_log` (`source = 'api'`).
+4. Run it from cron just before the worker, replacing the worker's `*/5` line above (GitHub Actions is too irregular for a live feed):
+   ```
+   */5 * * * *  cd /home/retinah/prodash-plus && ( PY=/home/retinah/virtualenv/prodash-etl/3.11/bin/python; $PY -m prodash.sync --once --worker cpanel; $PY -m prodash.worker --once --worker cpanel ) >> /home/retinah/logs/prodash-etl.log 2>&1
+   ```
+5. **Shadow week.** While `gold.dim_branch.ingest_source` is still `csv`, the branch's API batches land in bronze but the worker leaves them queued, so nothing reaches gold twice. Compare them with the CSV drops in bronze: same receipt numbers, same daily totals. Then switch: `update gold.dim_branch set ingest_source = 'api' where ...`. The worker then processes the queued batches too; silver keeps one copy of each receipt number. CSV drop stays as the fallback.
+
+How it behaves:
+- Each page of receipts is one load (`source = 'api'`), landed in the same transaction that moves the feed's cursor.
+- Every run re-reads 10 minutes before the cursor. Batches already landed are skipped, and a re-sent receipt replaces its earlier copy in silver.
+- A page that fails the contract check is `rejected` (visible in `ops.load_log`) and the feed stops with its cursor unchanged, so nothing is skipped. Fix the field map; the next run retries it.
+- Sync runs appear in `ops.etl_runs` with `mode = 'sync'` and `loads_landed`. With no active feeds, a run writes nothing.
+
 ## Monitoring
 
 ```sql

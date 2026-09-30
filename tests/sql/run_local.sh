@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ProDash+ | tests/sql/run_local.sh
-# Tests sql/00..10 + seed on a THROWAWAY local Postgres. Never point
+# Tests every sql/NN_*.sql + seed on a THROWAWAY local Postgres. Never point
 # this at Supabase.
 #
 #   Scenario A  fresh install (as ProDash+_pro will be built), then a
 #               full re-run to prove every file is safe to re-run.
 #   Scenario B  upgrade: ProDash+_dev's current state (00, 01 and its
-#               data, including the walk-in placeholder) + 02..10.
+#               data, including the walk-in placeholder) + every later file.
 #   Each scenario then runs the assertions.
 #
 #   PGHOST=/path/to/socket PGPORT=55432 tests/sql/run_local.sh
@@ -49,7 +49,7 @@ run "$ROOT/sql/00_init_schemas.sql"
 run "$ROOT/sql/01_dimensions.sql"
 assertions
 
-echo "== Scenario B: upgrade ProDash+_dev (00, 01 + current data) with 02..14"
+echo "== Scenario B: upgrade ProDash+_dev (00, 01 + current data) with 02 onwards"
 fresh_db
 run "$ROOT/sql/00_init_schemas.sql"
 run "$ROOT/sql/01_dimensions.sql"

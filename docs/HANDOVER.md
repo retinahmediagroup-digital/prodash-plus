@@ -68,6 +68,7 @@ Secrets live only in the password manager, GitHub Actions secrets and local `.en
 - `12`: `app.grant_access()` / `app.revoke_access()`.
 - `13`: `etl_worker` login (bypasses RLS, no DDL, no auth access).
 - `14`: ETL queue (`ops.claim_next_load()`, `ops.etl_runs`).
+- `15` (**drafted 30 Sep, tested locally, not applied to dev**): API feeds. `api` as a load source, `ops.source_sync` (feeds and cursors), `gold.ref_product_code`, `dim_branch.ingest_source`. The worker only takes a branch's API loads once that branch is switched to `api` (shadow week). Sync runs are logged in `etl_runs` (mode `sync`); Storage accepts JSON.
 - `seed/seed_prodairy.sql`: client `PRODAIRY` (prefix `PD`), brand LIFE, product `LIFE_250ML`, branch **HF Highfield only**, 20 engine parameters, holdout experiment, 8 draft playbooks (inactive), 5 English WhatsApp templates (draft).
 
 **Python (`prodash/`)**
@@ -75,7 +76,8 @@ Secrets live only in the password manager, GitHub Actions secrets and local `.en
 | Module | Status |
 |---|---|
 | `config`, `db` (`read_sql`, `transaction`, `copy_rows`), `storage`, `contract` (data contract + `HEADER_ALIASES`), `check` | Done |
-| `landing.land_file()`: fingerprint → Storage → header check → bronze → `load_log` | Done, tested |
+| `landing.land_file()` (CSV) and `landing.land_batch()` (API records, in the caller's transaction): one shared path, fingerprint → Storage → contract check → bronze → `load_log` | Done, tested |
+| `sync` (`--once`) and `sources/` (`base`: field maps, flattening; `pos_api`: placeholder) | Done, tested with a fake source. `pos_api` needs the field maps and `fetch()` once ProDairy names its system |
 | `worker` (`--once`, `--nightly`): claim → cleanse → publish → score, retries, `etl_runs` | Done, tested |
 | `cleanse.py`, `publish.py`, `scoring.py` | **Placeholders** (raise `StepNotReady`). Logic to be developed in notebooks, then moved here. |
 
@@ -88,10 +90,11 @@ Secrets live only in the password manager, GitHub Actions secrets and local `.en
 - On `supabase/base-schemas` the workflow uses `actions/checkout@v5` and `actions/setup-python@v6` (Node 24). A run from that branch on 30 Sep (`ops.etl_runs` run 6) succeeded with no Node 20 warning. `main` keeps v4/v5 until the merge.
 
 **Tests**
-- `tests/sql/run_local.sh`: 17 SQL test groups × 2 scenarios (fresh install / dev upgrade).
-- `tests/python`: 13 pytest tests (contract, landing, storage, worker).
+- `tests/sql/run_local.sh`: 21 SQL test groups × 2 scenarios (fresh install / dev upgrade), including 15.
+- `tests/python`: 32 pytest tests (contract, landing, API landing, sources, sync, storage, worker).
 - Both need a throwaway local Postgres. Never point them at Supabase.
-- Last full run 29 Sep: all passed on Postgres 16 with Python 3.11 and 3.12 (pip now installs pandas 3.0 and SQLAlchemy 2.1).
+- Last full run 30 Sep: all passed on Postgres 16 with Python 3.11 and 3.12 (pip now installs pandas 3.0 and SQLAlchemy 2.1).
+- Landing now reads ISO dates (2026-10-05) as year-month-day even with `dayfirst=True`; pandas 3 had been swapping them (10 May), which would have skewed `max_receipt_date` and the branch snapshot.
 
 **Docs:** `docs/ProDash_Plus_SSOT.docx`, `docs/ProDash_Plus_Medallion_Architecture.pptx`, `docs/ProDash_Plus_Backend_Architecture.pptx` (13-slide technical deck with speaker notes: tools, schemas, pipeline, engine rules, security, status), `docs/etl_worker.md` (runbook incl. cPanel switch-over), `notebooks/README.md`, `sql/README.md`.
 
@@ -126,6 +129,7 @@ Remaining laptop steps:
 5. Web app: Supabase auth, Branch Manager CSV drop (signed upload URL, then `ops.load_log`), branch BI, Action Queue, HQ overview.
 6. WhatsApp: Meta verification / test number, Edge Function webhook, bot flows.
 7. When the host opens port 5432: cPanel cron (`docs/etl_worker.md`), then `ETL_RUNNER=cpanel`.
+7a. When ProDairy names its shop system and shares API docs and test credentials: apply `15` to dev, fill in `prodash/sources/pos_api.py` (field maps, `fetch()`), then follow "API feeds" in `docs/etl_worker.md` (register shops, shadow week, switch).
 8. Prod: upgrade to Pro, apply `00`–`14` plus the seed as migrations, set up users with `app.grant_access()`.
 
 ## 7. Waiting on others

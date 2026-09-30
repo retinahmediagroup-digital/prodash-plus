@@ -19,6 +19,7 @@ Built from the ProDash+ SSOT v1.0. Every file is idempotent: safe to re-run, in 
 | `12_user_access.sql` | `app.grant_access()` / `app.revoke_access()` for giving people dashboard access | §10.4 |
 | `13_etl_role.sql` | `etl_worker` login for notebooks and pipeline jobs (set its password yourself) | §13 |
 | `14_etl_queue.sql` | `ops.load_log` as the ETL queue, `ops.claim_next_load()`, `ops.etl_runs` (see `docs/etl_worker.md`) | §13 |
+| `15_api_source.sql` | API feeds: `api` as a load source, `ops.source_sync` (feeds and cursors), `gold.ref_product_code`, `dim_branch.ingest_source` (API loads wait until a branch is switched), JSON in Storage | §5.5, §12.5 |
 | `seed/seed_prodairy.sql` | ProDairy reference data, engine parameters v1, holdout, draft playbooks and templates | — |
 
 ## Applying
@@ -26,7 +27,8 @@ Built from the ProDash+ SSOT v1.0. Every file is idempotent: safe to re-run, in 
 Run in the Supabase SQL editor (or `psql`) in file order, then the seed:
 
 - **ProDash+_dev** — 00–14 + seed applied. 00 and 01 were run by hand on 25 Sep and recorded in `supabase_migrations.schema_migrations` afterwards, so the history reads 00 → 14 with no gaps.
-- **ProDash+_pro** is empty → apply `00` … `14` in order (each as a migration, so its history matches dev), then the seed.
+- **`15` is drafted and tested locally, not applied to dev yet.** Apply it when the API work starts; until then dev stops at 14.
+- **ProDash+_pro** is empty → apply the same numbered files as dev in order (each as a migration, so its history matches dev), then the seed.
 - Re-running all files in order is safe, and so is re-running 00 or 01 on its own after later files (both tested). For any other file, re-run it followed by every later file.
 
 ### Giving people access

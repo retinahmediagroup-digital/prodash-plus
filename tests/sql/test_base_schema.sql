@@ -465,4 +465,116 @@ begin
 end $$;
 rollback;
 
+/* ---------- 13. API feeds (15): api loads, sync checkpoint, product codes ---------- */
+insert into ops.load_log (client_id, source, source_file, file_sha256, branch_id, rows_in_file, rows_loaded,
+                          min_receipt_date, max_receipt_date, status, finished_at, published_at, reconciliation_status)
+values ('PRODAIRY', 'api', 'pos_api HF test batch', repeat('d', 64), 'HF', 1, 1,
+        '2026-09-21', '2026-09-21', 'published', now(), now(), 'passed');
+
+insert into gold.fact_sales (client_id, branch_id, receipt_no, line_no, date_key, receipt_ts, product_id,
+                             quantity, line_total, currency, source, load_id)
+select 'PRODAIRY', 'HF', 'HF-API-1', 1, date '2026-09-21', timestamptz '2026-09-21 10:00+02', 'LIFE_250ML',
+       1, 0.45, 'USD', 'api', load_id
+from ops.load_log where source_file = 'pos_api HF test batch';
+
+insert into ops.source_sync (client_id, source_name, branch_id, external_id, is_active, cursor_value)
+values ('PRODAIRY', 'pos_api', 'HF', 'STORE-001', true, '2026-09-21T10:00:00+02:00');
+insert into gold.ref_product_code (client_id, source_name, external_code, product_id)
+values ('PRODAIRY', 'pos_api', 'SKU-250', 'LIFE_250ML');
+
+do $$
+begin
+  begin
+    insert into gold.fact_sales (client_id, branch_id, receipt_no, line_no, date_key, receipt_ts, product_id,
+                                 quantity, line_total, currency, source)
+    values ('PRODAIRY', 'HF', 'HF-API-2', 1, '2026-09-21', now(), 'LIFE_250ML', 1, 1, 'USD', 'api');
+    raise exception 'api fact without load_id accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into ops.load_log (client_id, source, source_file, file_sha256, status, finished_at)
+    values ('PRODAIRY', 'ftp', 'x', repeat('e', 64), 'failed', now());
+    raise exception 'unknown load source accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into ops.source_sync (client_id, source_name, branch_id, external_id)
+    values ('PRODAIRY', 'pos_api', 'BW', 'STORE-001');
+    raise exception 'one shop id mapped to two branches';
+  exception when unique_violation then null;
+  end;
+  begin
+    insert into ops.etl_runs (worker, mode) values ('test', 'hourly');
+    raise exception 'unknown run mode accepted';
+  exception when check_violation then null;
+  end;
+  insert into ops.etl_runs (worker, mode, status, loads_landed, finished_at) values ('test', 'sync', 'succeeded', 1, now());
+  assert (select snapshot_date from gold.v_branch_data_freshness where branch_id = 'HF') = '2026-09-21',
+         'api sales move the branch snapshot';
+  assert (select ingest_source from gold.dim_branch where branch_id = 'HF') = 'csv', 'branches default to csv';
+  assert exists (select 1 from storage.buckets
+                 where id = 'raw-uploads' and 'application/json' = any(allowed_mime_types)),
+         'bucket accepts JSON batches';
+  raise notice 'PASS 13a API loads, feeds and product codes';
+end $$;
+
+begin;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000b","role":"authenticated"}', true) as _jwt \gset
+do $$
+begin
+  assert (select count(*) from gold.ref_product_code) = 1, 'a branch manager reads their client''s product codes';
+  begin
+    perform count(*) from ops.source_sync;
+    raise exception 'app users can read the sync checkpoint';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000e","role":"authenticated"}', true) as _jwt \gset
+do $$
+begin
+  assert (select count(*) from gold.ref_product_code) = 0, 'another tenant sees no ProDairy product codes';
+  raise notice 'PASS 13b API tables and app users';
+end $$;
+commit;
+
+begin;
+set local role etl_worker;
+do $$
+begin
+  update ops.source_sync set cursor_value = '2026-09-21T11:00:00+02:00', last_synced_at = now()
+   where client_id = 'PRODAIRY' and source_name = 'pos_api' and branch_id = 'HF';
+  assert found, 'etl_worker moves the cursor';
+  insert into gold.ref_product_code (client_id, source_name, external_code, product_id)
+  values ('PRODAIRY', 'pos_api', 'SKU-250-CASE', 'LIFE_250ML');
+  update gold.dim_branch set ingest_source = 'api' where client_id = 'PRODAIRY' and branch_id = 'HF';
+  assert found, 'etl_worker switches a branch to its feed';
+  begin
+    update gold.dim_branch set branch_name = 'Renamed' where client_id = 'PRODAIRY' and branch_id = 'HF';
+    raise exception 'etl_worker can edit other branch columns';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS 13c etl_worker runs the sync';
+end $$;
+rollback;
+
+begin;
+do $$
+declare v_api bigint; v_claimed bigint;
+begin
+  assert not exists (select 1 from ops.load_log where status in ('loaded','processing')), 'queue starts empty';
+  insert into ops.load_log (client_id, source, source_file, file_sha256, branch_id, rows_in_file, rows_loaded,
+                            min_receipt_date, max_receipt_date, status, finished_at)
+  values ('PRODAIRY', 'api', 'pos_api HF shadow batch', repeat('f', 64), 'HF', 1, 1,
+          '2026-09-22', '2026-09-22', 'loaded', now())
+  returning load_id into v_api;
+  select load_id into v_claimed from ops.claim_next_load('test');
+  assert v_claimed is null, 'API load claimed while its branch is still on csv (shadow week)';
+  update gold.dim_branch set ingest_source = 'api' where client_id = 'PRODAIRY' and branch_id = 'HF';
+  select load_id into v_claimed from ops.claim_next_load('test');
+  assert v_claimed = v_api, 'API load claimed once its branch is on api';
+  raise notice 'PASS 13d API loads wait until the branch is switched';
+end $$;
+rollback;
+
 \echo 'ALL TESTS PASSED'
